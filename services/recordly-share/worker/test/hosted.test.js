@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import worker from "../src/index.js";
 import { ensureSchema } from "../src/schema.js";
 
@@ -103,6 +103,17 @@ it("requires a verified non-anonymous identity and never accepts a shared secret
 			)
 		).status,
 	).toBe(401);
+});
+
+it("checks Supabase without following redirects or forwarding the bearer to another origin", async () => {
+	fetch.mockResolvedValueOnce(
+		new Response(null, { status: 302, headers: { Location: "https://other.example.test" } }),
+	);
+	expect((await call("/api/health")).status).toBe(401);
+	expect(fetch).toHaveBeenCalledWith(
+		new URL("https://auth.example.test/auth/v1/user"),
+		expect.objectContaining({ redirect: "manual" }),
+	);
 });
 
 it("isolates every recording mutation before its handler can touch storage", async () => {

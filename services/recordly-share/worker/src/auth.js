@@ -1,7 +1,7 @@
 // Adapted from Voom (MIT), Copyright (c) 2026 Aritro Paul.
 // See ../../LICENSE and ../../../../THIRD_PARTY_NOTICES.md for attribution.
 
-import { generateSalt, sha256Hex, timingSafeEqual, hashRecordingPassword } from "./crypto.js";
+import { generateSalt, hashRecordingPassword, sha256Hex, timingSafeEqual } from "./crypto.js";
 import { errorResponse, jsonResponse, parseCookies } from "./http.js";
 
 export async function isAuthorized(request, env) {
@@ -29,6 +29,7 @@ export async function isAuthorized(request, env) {
 				Authorization: `Bearer ${token}`,
 				apikey: env.SUPABASE_PUBLISHABLE_KEY,
 			},
+			redirect: "manual",
 		});
 		if (!response.ok) return false;
 		const user = await response.json();
@@ -48,7 +49,8 @@ export async function hostedUser(request, env) {
 		if (base.protocol !== "https:") return null;
 		const response = await fetch(new URL("/auth/v1/user", base), {
 			headers: { Authorization: auth, apikey: env.SUPABASE_PUBLISHABLE_KEY },
-			redirect: "error",
+			// Workers rejects redirect: "error"; manual leaves redirects as non-2xx responses.
+			redirect: "manual",
 			signal: AbortSignal.timeout(10000),
 		});
 		if (!response.ok) return null;
