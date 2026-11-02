@@ -1,10 +1,10 @@
 # Recordly authentication setup
 
-Recordly requires a non-anonymous Supabase Auth session before onboarding can advance to permissions or recording can start. The sign-in dialog uses email magic links and whichever of Google, Microsoft, or GitHub OAuth are enabled in the configured project; there is no guest or local demo login. Sessions persist across app restarts. The desktop application uses PKCE and returns from the system browser through a loopback callback in development and `recordly://auth/callback` in production. The dialog reads `/auth/v1/settings` and shows only enabled OAuth providers. SAML is intentionally hidden until configured.
+Local recording and export work without a Supabase session. When Auth is configured, onboarding offers **Continue locally**; publishing and managing cloud links still require a confirmed, non-anonymous sign-in. The sign-in dialog uses email magic links and whichever of Google, Microsoft, or GitHub OAuth are enabled in the configured project. Sessions persist across app restarts. The desktop application uses PKCE and returns from the system browser through a loopback callback in development and `recordly://auth/callback` in production. The dialog reads `/auth/v1/settings` and shows only enabled OAuth providers. SAML is intentionally hidden until configured.
 
 ## Account and permission settings
 
-**Settings → Account** is available in both the editor and Projects dashboard. Display-name changes update Supabase user metadata and refresh the account avatar everywhere. Email changes use Supabase's email confirmation flow and the same desktop PKCE callback as sign-in; the existing email stays active until confirmation completes. Pending email changes are shown after reopening Settings. Connected sign-in methods reflect the user's actual account identities. Sign out clears the local session, revokes refresh sessions on all devices, and brings back mandatory sign-in; local projects remain on disk.
+**Settings → Account** is available in both the editor and Projects dashboard. Display-name changes update Supabase user metadata and refresh the account avatar everywhere. Email changes use Supabase's email confirmation flow and the same desktop PKCE callback as sign-in; the existing email stays active until confirmation completes. Pending email changes are shown after reopening Settings. Connected sign-in methods reflect the user's actual account identities. Sign out clears the local session and revokes refresh sessions on all devices; local projects remain on disk and local recording remains available.
 
 **Settings → Permissions** shows live macOS Screen Recording and Accessibility statuses, refreshes when the app regains focus, and links to the onboarding permission setup. Microphone and camera permission requests remain tied to enabling those devices for recording. On other platforms, capture selection remains part of starting a recording.
 
@@ -48,13 +48,13 @@ The auth helper supports extracting a work email domain for SAML; this option is
 
 Restart `npm run dev` after creating `.env.local`. Open an editor and verify:
 
-1. Without a session, **Welcome to Recordly** opens and cannot be skipped or dismissed.
-2. Request an email magic link. Sending the email alone must not grant access. Opening the link exchanges its PKCE code for a persistent Supabase session and advances to **Permissions**.
+1. Without a session, **Welcome to Recordly** offers **Continue locally**. Local recording must remain available without signing in.
+2. Request an email magic link. Sending the email alone must not grant cloud access. Opening the link exchanges its PKCE code for a persistent Supabase session and advances to **Permissions**.
 3. OAuth opens the system browser and returns to Recordly through the same callback.
 4. On Permissions, **Start recording** opens the recording controls after required system permissions are granted.
-5. Restart the app to verify session restoration. Sign out from the account dialog and verify that mandatory sign-in returns.
-6. **Show onboarding** opens Permissions directly for signed-in users. The recording HUD also checks for a Supabase session before preparing a recording.
+5. Restart the app to verify session restoration. Sign out from the account dialog and verify that local recording remains available while cloud sharing asks for sign-in.
+6. **Show onboarding** opens Permissions directly for signed-in or local users. The recording HUD checks macOS capture permissions before preparing a recording; cloud actions check the Supabase session separately.
 
 Automated UI tests use an isolated Supabase URL and mocked Auth HTTP responses; no production auth bypass is enabled in development or tests.
 
-Add the same `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` values to the share Worker's secrets or variables. Set `OWNER_USER_ID` to the owner’s Supabase user ID. The Worker validates the access token with Supabase and requires that owner identity before accepting API requests. `API_SECRET` is server-side only and remains available for library administration and explicitly enabled local integration tests; it is never entered into or exposed by the desktop app.
+Add the same `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` values to the share Worker's secrets or variables. For a single-owner self-host deployment, set `OWNER_USER_ID` to the owner’s Supabase user ID. Hosted staging can instead set `STAGING_ALLOWED_USER_ID` to one confirmed user; hosted production can omit that allowlist for multiple accounts. The Worker validates the access token with Supabase before accepting API requests. `API_SECRET` is server-side only and remains available for library administration and explicitly enabled local integration tests; it is never entered into or exposed by the desktop app.

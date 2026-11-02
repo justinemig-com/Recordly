@@ -1,20 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
 	normalizeCloudEndpoint,
-	parseCloudShareTicket,
 	parseCloudRecordingList,
+	parseCloudShareTicket,
 } from "../cloudShareContract";
 
 describe("cloud share contract", () => {
-	it("accepts only Recordly production, isolated staging, and local development endpoints", () => {
+	it("accepts only the owner's staging and local development endpoints", () => {
 		expect(
 			normalizeCloudEndpoint(
-				"https://recordly-share-staging.youngchen3442.workers.dev/api/upload",
+				"https://recordly-share-justinemig-staging.alh-seo.workers.dev/api/upload",
 			),
-		).toBe("https://recordly-share-staging.youngchen3442.workers.dev/api/upload");
-		expect(normalizeCloudEndpoint("https://videos.recordly.dev/api/upload#ignored")).toBe(
-			"https://videos.recordly.dev/api/upload",
-		);
+		).toBe("https://recordly-share-justinemig-staging.alh-seo.workers.dev/api/upload");
+		expect(
+			normalizeCloudEndpoint(
+				"https://recordly-share-justinemig-staging.alh-seo.workers.dev/api/upload#ignored",
+			),
+		).toBe("https://recordly-share-justinemig-staging.alh-seo.workers.dev/api/upload");
 		expect(normalizeCloudEndpoint("http://localhost:8787/api/upload")).toBe(
 			"http://localhost:8787/api/upload",
 		);
@@ -39,28 +41,35 @@ describe("cloud share contract", () => {
 
 	it("rejects insecure and untrusted remote endpoints", () => {
 		expect(() =>
-			normalizeCloudEndpoint("https://other.youngchen3442.workers.dev/api/upload"),
+			normalizeCloudEndpoint("https://other.alh-seo.workers.dev/api/upload"),
 		).toThrow("only allowed through the Recordly service");
 		expect(() =>
 			normalizeCloudEndpoint(
-				"https://recordly-share-staging.youngchen3442.workers.dev.attacker.example/api/upload",
+				"https://recordly-share-justinemig-staging.alh-seo.workers.dev.attacker.example/api/upload",
 			),
 		).toThrow("only allowed through the Recordly service");
+		expect(() =>
+			normalizeCloudEndpoint(
+				"https://recordly-share-staging.youngchen3442.workers.dev/api/upload",
+			),
+		).toThrow("only allowed through the Recordly service");
+		expect(() => normalizeCloudEndpoint("https://videos.recordly.dev/api/upload")).toThrow(
+			"only allowed through the Recordly service",
+		);
 		expect(() => normalizeCloudEndpoint("https://untrusted.example.test/api/upload")).toThrow(
 			"only allowed through the Recordly service",
 		);
-		expect(() =>
-			normalizeCloudEndpoint("https://videos.recordly.dev.attacker.example/api/upload"),
-		).toThrow("only allowed through the Recordly service");
 		expect(() => normalizeCloudEndpoint("http://share.example.com/api/shares")).toThrow(
 			"only allowed through the Recordly service",
 		);
 		expect(() => normalizeCloudEndpoint("https://share.example.com/api/upload")).toThrow(
 			"only allowed through the Recordly service",
 		);
-		expect(() => normalizeCloudEndpoint("https://videos.recordly.dev/api/other")).toThrow(
-			"endpoint is invalid",
-		);
+		expect(() =>
+			normalizeCloudEndpoint(
+				"https://recordly-share-justinemig-staging.alh-seo.workers.dev/api/other",
+			),
+		).toThrow("endpoint is invalid");
 	});
 
 	it("normalizes a presigned PUT ticket", () => {

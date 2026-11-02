@@ -1,28 +1,21 @@
-import { ArrowRight, GithubLogo } from "@phosphor-icons/react";
-import { OnboardingPermissions } from "./OnboardingPermissions";
 import {
-	OnboardingBody,
-	OnboardingFooter,
-	OnboardingHeader,
-	OnboardingLayout,
-} from "./OnboardingLayout";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useI18n } from "@/contexts/I18nContext";
-import { SignOut } from "@/components/ui/icons";
-import type { User } from "@supabase/supabase-js";
-import { Fragment, type FormEvent, useEffect, useState, useRef } from "react";
-import {
-	Modal,
+	Alert,
 	Button,
-	Form,
-	TextField,
-	Input,
-	Label,
 	Description,
 	FieldError,
+	Form,
+	Input,
+	Label,
+	Modal,
 	Separator,
-	Alert,
+	TextField,
 } from "@heroui/react";
+import { ArrowRight, GithubLogo } from "@phosphor-icons/react";
+import type { User } from "@supabase/supabase-js";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { type FormEvent, Fragment, useEffect, useRef, useState } from "react";
+import { SignOut } from "@/components/ui/icons";
+import { useI18n } from "@/contexts/I18nContext";
 import {
 	getEnabledSignInProviders,
 	type RecordlyOAuthProvider,
@@ -30,6 +23,13 @@ import {
 	signInWithSocial,
 	signOutRecordly,
 } from "@/lib/auth/recordlyAuth";
+import {
+	OnboardingBody,
+	OnboardingFooter,
+	OnboardingHeader,
+	OnboardingLayout,
+} from "./OnboardingLayout";
+import { OnboardingPermissions } from "./OnboardingPermissions";
 
 const MotionDialog = motion.create(Modal.Dialog);
 
@@ -80,8 +80,10 @@ export function RecordlySignInDialog({
 	const awaitingSignIn = useRef(false);
 	const wide = onboarding || variant === "wide";
 	const [showPermissions, setShowPermissions] = useState(false);
-	const requiresSignIn = onboarding && !user;
-	const permissions = onboarding && Boolean(user) && showPermissions;
+	const [continueLocally, setContinueLocally] = useState(false);
+	const localOnly = onboarding && !user && (!configured || continueLocally);
+	const requiresSignIn = onboarding && !user && !localOnly;
+	const permissions = onboarding && (Boolean(user) || localOnly) && showPermissions;
 	const [email, setEmail] = useState("");
 	const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 	const [busy, setBusy] = useState<string>();
@@ -133,8 +135,14 @@ export function RecordlySignInDialog({
 	}, [open]);
 
 	useEffect(() => {
-		if (open && startWithPermissions && user) setShowPermissions(true);
+		if (open && startWithPermissions && !user) setContinueLocally(true);
 	}, [open, startWithPermissions, user]);
+
+	useEffect(() => {
+		if (open && (startWithPermissions || localOnly) && (user || localOnly)) {
+			setShowPermissions(true);
+		}
+	}, [open, startWithPermissions, user, localOnly]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -245,7 +253,7 @@ export function RecordlySignInDialog({
 								description={
 									user
 										? user.email || "You’re signed in and ready to continue."
-										: "Sign in to Recordly to start recording, save your work and share it."
+										: "Record locally, or sign in to publish and manage cloud links."
 								}
 							/>
 						) : (
@@ -422,6 +430,19 @@ export function RecordlySignInDialog({
 									)}
 								</AnimatePresence>
 							</Form>
+							{onboarding && configured && (
+								<Button
+									variant="secondary"
+									className="mt-3 h-11 w-full rounded-xl"
+									isDisabled={disabled}
+									onPress={() => {
+										setContinueLocally(true);
+										setShowPermissions(true);
+									}}
+								>
+									Continue locally
+								</Button>
+							)}
 						</>
 					)}
 					{message ? (
@@ -484,9 +505,12 @@ export function RecordlySignInDialog({
 						{onboarding ? (
 							<OnboardingLayout
 								stage={permissions ? "permissions" : "account"}
-								canViewPermissions={Boolean(user)}
+								canViewPermissions={Boolean(user) || localOnly}
+								localOnly={localOnly}
 								onStageChange={(stage) =>
-									setShowPermissions(stage === "permissions" && Boolean(user))
+									setShowPermissions(
+										stage === "permissions" && (Boolean(user) || localOnly),
+									)
 								}
 							>
 								<AnimatePresence
@@ -506,9 +530,10 @@ export function RecordlySignInDialog({
 									>
 										{permissions ? (
 											<OnboardingPermissions
+												localOnly={localOnly}
 												onBack={() => setShowPermissions(false)}
 												onFinish={() => {
-													if (user) onAuthenticated();
+													if (user || localOnly) onAuthenticated();
 												}}
 											/>
 										) : (
