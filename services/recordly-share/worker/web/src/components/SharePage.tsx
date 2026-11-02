@@ -196,7 +196,6 @@ export default function SharePage() {
 	const [view, setView] = useState<"loading" | "password" | "expired" | "error" | "recording">(
 		"loading",
 	);
-	const [title, setTitle] = useState("Protected recording");
 	const [password, setPassword] = useState("");
 	const [unlocking, setUnlocking] = useState(false);
 	const [error, setError] = useState("");
@@ -211,8 +210,7 @@ export default function SharePage() {
 				document.title = "Recording unavailable — Recordly";
 			} else if (isPasswordRequired(result)) {
 				setView("password");
-				setTitle(result.title);
-				document.title = `${result.title} — Recordly`;
+				document.title = "Protected recording — Recordly";
 			} else if (isShareData(result)) {
 				setData(result);
 				setView("recording");
@@ -268,7 +266,7 @@ export default function SharePage() {
 					{view === "password" ? (
 						<>
 							<LockKeyIcon size={28} />
-							<h1>{title}</h1>
+							<h1>Protected recording</h1>
 							<p>This recording is password protected.</p>
 							<form
 								className="gate-form"

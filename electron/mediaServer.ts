@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -7,6 +8,16 @@ import { getMediaContentType } from "./mediaTypes";
 
 let mediaServerBaseUrl: string | null = null;
 let mediaServerStartPromise: Promise<string> | null = null;
+const mediaTokenKey = randomBytes(32);
+
+function mediaToken(filePath: string): string {
+	return createHmac("sha256", mediaTokenKey).update(filePath).digest("hex");
+}
+
+function hasValidMediaToken(filePath: string, token: string | null): boolean {
+	if (!token || !/^[a-f0-9]{64}$/.test(token)) return false;
+	return timingSafeEqual(Buffer.from(token, "hex"), Buffer.from(mediaToken(filePath), "hex"));
+}
 
 export function resolveHttpByteRange(
 	rangeHeader: string,
@@ -79,6 +90,15 @@ async function handleMediaRequest(
 		if (!rawPath) {
 			response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
 			response.end("Missing path parameter");
+			return;
+		}
+		if (
+			url.searchParams.getAll("path").length !== 1 ||
+			url.searchParams.getAll("token").length !== 1 ||
+			!hasValidMediaToken(rawPath, url.searchParams.get("token"))
+		) {
+			response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+			response.end("Forbidden");
 			return;
 		}
 
@@ -233,5 +253,5 @@ export async function ensureMediaServer(): Promise<string> {
 
 export function buildMediaUrl(baseUrl: string, filePath: string): string {
 	const resolved = path.resolve(filePath);
-	return `${baseUrl}/video?path=${encodeURIComponent(resolved)}`;
+	return `${baseUrl}/video?path=${encodeURIComponent(resolved)}&token=${mediaToken(resolved)}`;
 }

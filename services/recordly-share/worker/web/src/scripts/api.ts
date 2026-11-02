@@ -34,7 +34,6 @@ export interface ShareData {
 
 export interface PasswordRequired {
   password_protected: true;
-  title: string;
 }
 
 export interface Expired {

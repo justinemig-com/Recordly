@@ -69,6 +69,52 @@ describe("media server path policy", () => {
 
 		expect(isAllowedMediaPath(missingPath)).toBe(false);
 	});
+
+	it("requires a path-bound token while preserving authorized playback and ranges", async () => {
+		const firstPath = path.join(tempRoot, "first.mp4");
+		const secondPath = path.join(tempRoot, "second.mp4");
+		const unapprovedPath = path.join(tempRoot, "unapproved.mp4");
+		await Promise.all([
+			fs.writeFile(firstPath, "first-video"),
+			fs.writeFile(secondPath, "second-video"),
+			fs.writeFile(unapprovedPath, "private-video"),
+		]);
+
+		const { buildMediaUrl, ensureMediaServer } = await import("./mediaServer");
+		const { rememberApprovedLocalReadPath } = await import("./ipc/project/manager");
+		await rememberApprovedLocalReadPath(firstPath);
+		await rememberApprovedLocalReadPath(secondPath);
+
+		const baseUrl = await ensureMediaServer();
+		const authorizedUrl = buildMediaUrl(baseUrl, firstPath);
+		const authorized = await fetch(authorizedUrl);
+		expect(authorized.status).toBe(200);
+		expect(await authorized.text()).toBe("first-video");
+		expect((await fetch(authorizedUrl, { method: "HEAD" })).status).toBe(200);
+		const range = await fetch(authorizedUrl, { headers: { Range: "bytes=1-3" } });
+		expect(range.status).toBe(206);
+		expect(await range.text()).toBe("irs");
+		expect((await fetch(authorizedUrl, { headers: { Range: "bytes=99-" } })).status).toBe(416);
+		expect((await fetch(authorizedUrl, { method: "OPTIONS" })).status).toBe(204);
+
+		const withoutToken = new URL(authorizedUrl);
+		withoutToken.searchParams.delete("token");
+		const blocked = await fetch(withoutToken);
+		expect(blocked.status).toBe(403);
+		expect(blocked.headers.get("Access-Control-Allow-Origin")).toBeNull();
+		expect(await blocked.text()).not.toContain("first-video");
+
+		const wrongToken = new URL(authorizedUrl);
+		wrongToken.searchParams.set("token", "0".repeat(64));
+		expect((await fetch(wrongToken)).status).toBe(403);
+		const swappedPath = new URL(authorizedUrl);
+		swappedPath.searchParams.set("path", secondPath);
+		expect((await fetch(swappedPath)).status).toBe(403);
+		const duplicateToken = new URL(authorizedUrl);
+		duplicateToken.searchParams.append("token", duplicateToken.searchParams.get("token") ?? "");
+		expect((await fetch(duplicateToken)).status).toBe(403);
+		expect((await fetch(buildMediaUrl(baseUrl, unapprovedPath))).status).toBe(403);
+	});
 });
 
 describe("resolveHttpByteRange", () => {

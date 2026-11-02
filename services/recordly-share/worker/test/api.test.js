@@ -269,7 +269,18 @@ describe('password protection', () => {
     const shareCode = await protectedShare();
     const res = await SELF.fetch(`${BASE}/s/${shareCode}/data`);
     expect(res.status).toBe(401);
-    expect((await res.json()).password_protected).toBe(true);
+    expect(await res.json()).toEqual({ password_protected: true });
+
+    const unlocked = await SELF.fetch(`${BASE}/s/${shareCode}/verify-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    expect(unlocked.status).toBe(200);
+    const cookie = unlocked.headers.get('Set-Cookie').split(';')[0];
+    const data = await SELF.fetch(`${BASE}/s/${shareCode}/data`, { headers: { Cookie: cookie } });
+    expect(data.status).toBe(200);
+    expect((await data.json()).video.title).toBe('Test Recording');
   });
 
   it('gates reactions, comments, and the thumbnail behind the password', async () => {
@@ -391,7 +402,10 @@ describe('password protection', () => {
     expect(img.headers.get('Content-Type')).toContain('svg');
     const svg = await img.text();
     expect(svg).toContain('Protected video');
+    expect(svg).toContain('Password required');
     expect(svg).not.toContain('Test Recording');
+    expect(svg).not.toContain('0:12');
+    expect(svg).not.toMatch(/\d{4}-\d{2}-\d{2}/);
   });
 });
 
