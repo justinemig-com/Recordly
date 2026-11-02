@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
 import { Button } from "@heroui/react";
 import { ArrowLeft, ArrowRight, Check, Cursor, Monitor } from "@phosphor-icons/react";
+import { useCallback, useEffect, useState } from "react";
 import { OnboardingBody, OnboardingFooter, OnboardingHeader } from "./OnboardingLayout";
 import { PermissionsConfetti } from "./PermissionsConfetti";
 
 export function OnboardingPermissions({
 	onBack,
 	onFinish,
+	localOnly = false,
 }: {
 	onBack: () => void;
 	onFinish: () => void;
+	localOnly?: boolean;
 }) {
 	const [platform, setPlatform] = useState<"checking" | "mac" | "other">("checking");
 	const [screenGranted, setScreenGranted] = useState(false);
@@ -194,10 +196,12 @@ export function OnboardingPermissions({
 				)}
 			</OnboardingBody>
 			<OnboardingFooter>
-				<Button variant="ghost" aria-label="Back to account" onPress={onBack}>
-					<ArrowLeft size={16} />
-					Back
-				</Button>
+				{!localOnly && (
+					<Button variant="ghost" aria-label="Back to account" onPress={onBack}>
+						<ArrowLeft size={16} />
+						Back
+					</Button>
+				)}
 				<Button
 					isDisabled={
 						platform === "checking" ||
