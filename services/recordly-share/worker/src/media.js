@@ -165,7 +165,7 @@ export async function handleShareData(request, env, shareCode) {
   if (video.password_hash) {
     const authed = await verifyPasswordAuth(request, env, shareCode, video);
     if (!authed) {
-      return jsonResponse({ password_protected: true, title: video.title }, 401);
+      return jsonResponse({ password_protected: true }, 401);
     }
   }
 
@@ -307,11 +307,12 @@ export async function handleOGImage(env, shareCode) {
 
   // Fallback SVG
   const locked = !!video.password_hash;
-  const duration = formatDuration(video.duration);
-  const date = formatDate(video.created_at);
   const rawTitle = locked ? 'Protected video' : video.title;
   const title = rawTitle.length > 60 ? rawTitle.substring(0, 57) + '...' : rawTitle;
   const res = !locked && video.width > 0 ? `${finiteNonnegative(video.width)}\u00d7${finiteNonnegative(video.height)}` : '';
+  const metadata = locked
+    ? 'Password required'
+    : `${formatDuration(video.duration)}  \u00b7  ${formatDate(video.created_at)}${res ? '  \u00b7  ' + res : ''}`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#000"/>
@@ -319,7 +320,7 @@ export async function handleOGImage(env, shareCode) {
   <circle cx="600" cy="290" r="40" fill="rgba(255,255,255,0.06)"/>
   <polygon points="590,270 590,310 620,290" fill="rgba(255,255,255,0.3)"/>
   <text x="600" y="400" text-anchor="middle" fill="#e5e5e5" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="22" font-weight="500">${escapeHTML(title)}</text>
-  <text x="600" y="440" text-anchor="middle" fill="#888" font-family="monospace" font-size="13" letter-spacing="1">${duration}  \u00b7  ${date}${res ? '  \u00b7  ' + res : ''}</text>
+  <text x="600" y="440" text-anchor="middle" fill="#888" font-family="monospace" font-size="13" letter-spacing="1">${metadata}</text>
   <text x="600" y="570" text-anchor="middle" fill="#2563eb" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="14" font-weight="600" letter-spacing="2">RECORDLY</text>
 </svg>`;
 
